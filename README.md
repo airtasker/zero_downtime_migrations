@@ -301,7 +301,7 @@ Make sure all old code is removed first and then add the migration in a seperate
 *After first PR is deployed*
 
 ```ruby
-class DropPostsTable < ActiveRecord::Migration
+class DropPostsTable < ActiveRecord::Migration[5.0]
   def change
     safety_assured { drop_table :posts }
   end
