@@ -308,6 +308,112 @@ class DropPostsTable < ActiveRecord::Migration[5.0]
 end
 ```
 
+### Adding a not nullable column
+
+When we add a column with the not nullable option it has to
+lock the table while it performs an UPDATE for ALL rows to
+set a default.
+
+#### Bad
+```ruby
+class AddColumnWithNotNullContraint < ActiveRecord::Migration[5.0]
+  def change
+    add_column :posts, :region_id, :integer, null: false, default: 1
+  end
+end
+```
+
+Adding a not nullable column is onerous, but if it's really
+really necessary there are two pathways depending on the size
+of the table:
+
+#### Good
+
+*Small tables (< 500 000 rows)*
+
+First let’s add the column without a default.
+
+```ruby
+class AddRegionToPosts < ActiveRecord::Migration[5.0]
+  def change
+    add_column :posts, :region_id, :integer
+  end
+end
+```
+
+Then we’ll set the new column default in a separate migration.
+Note that this does not update any existing data. This only
+sets the default for newly inserted rows going forward.
+
+```ruby
+class AddDefaultRegionIdToPosts < ActiveRecord::Migration[5.0]
+  def change
+    change_column_default :posts, :region_id, 1
+  end
+end
+```
+
+Then we’ll backport the default value for existing data in
+batches. This should be done in its own migration as well.
+Updating in batches allows us to lock 1000 rows at a time
+(or whatever batch size we prefer).
+
+```ruby
+class BackportDefaultRegionIdInPosts < ActiveRecord::Migration[5.0]
+  def change
+    Post.select(:id).find_in_batches.with_index do |records, index|
+      Rails.logger.info "Processing batch \#{index + 1} for region_id in posts"
+      Post.where(id: records).update_all(region_id: 1)
+    end
+  end
+end
+```
+
+Finally add the not null constraint on the table - note this
+still requires a full table scan to check all values
+
+```ruby
+class ChangeRegionIdToNotNullable < ActiveRecord::Migration
+  def change
+    change_column_null :posts, :region_id, false
+  end
+end
+```
+
+*Larger tables (> 500 000 rows)*
+
+Firstly, create a new table with the addition of the non-nullable
+column and adjust the code to write to both tables but still reading
+from the original.
+
+```ruby
+class AddNewPostsWithNotNullableRegionId < ActiveRecord::Migration
+  def change
+    create_table :posts_new do |t|
+      t.integer, region_id, default: 1, null: false
+      # ....
+    end
+  end
+end
+```
+
+Then backport the expected value for existing data in batches.
+This should be done in its own migration.
+
+Finally, in a seperate PR switch the code to use the new table
+and follow it up with yet another PR to drop the old table.
+
+If you're 100% positive that this migration is already safe, then
+wrap the call to `add_column` in a `safety_assured` block.
+
+```ruby
+class AddRegiondIdToPosts < ActiveRecord::Migration
+  def change
+    safety_assured { add_column :posts, :region_id, :integer, null: false, default: 1 }
+  end
+end
+```
+
 ### TODO
 
 * Changing a column type

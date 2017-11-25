@@ -129,24 +129,20 @@ module ZeroDowntimeMigrations
           Larger tables (> 500 000 rows)
 
           Firstly, create a new table with the addition of the non-nullable
-          column and adjust the code to write to both tables.
+          column and adjust the code to write to both tables but still reading
+          from the original.
 
             class AddNew#{table}WithNotNullable#{column_title} < ActiveRecord::Migration
               def change
                 create_table :#{table}_new do |t|
-                  t.#{column_type}, default: #{column_default}, null: false
+                  t.#{column_type}, #{column_title}, default: #{column_default}, null: false
                   ....
                 end
               end
             end
 
           Then backport the expected value for existing data in batches.
-          This should be done in its own rake task as well.
-
-            #{table_model}New.select(:id).find_in_batches.with_index do |records, index|
-              Rails.logger.info "Processing batch \#{index + 1} for #{column_title} in #{table_title}New"
-              #{table_model}New.where(id: records).update_all(#{column}: #{column_default})
-            end
+          This should be done in its own migration.
 
           Finally, in a seperate PR switch the code to use the new table
           and follow it up with yet another PR to drop the old table.
@@ -156,7 +152,7 @@ module ZeroDowntimeMigrations
 
             class Add#{column_title}To#{table_title} < ActiveRecord::Migration
               def change
-                safety_assured { add_column :#{table}, :#{column}, :#{column_type}, null: false }
+                safety_assured { add_column :#{table}, :#{column}, :#{column_type}, null: false, default: #{column_default} }
               end
             end
 
