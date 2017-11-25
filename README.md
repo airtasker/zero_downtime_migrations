@@ -274,6 +274,40 @@ class CopyPublishedDataOnPosts < ActiveRecord::Migration[5.0]
 end
 ```
 
+### Dropping a table
+
+If old code is still using the models associated with this table before cutover, it can cause outages and confusion during deployment.
+
+#### Bad
+```ruby
+class DropPostsTable < ActiveRecord::Migration[5.0]
+  def change
+    drop_table :posts
+  end
+end
+```
+
+#### Good
+
+Make sure all old code is removed first and then add the migration in a seperate PR after the first change is released.
+
+*First PR*
+
+```
+  rm app/models/Post.rb
+  # migrate any dependant code
+```
+
+*After first PR is deployed*
+
+```ruby
+class DropPostsTable < ActiveRecord::Migration
+  def change
+    safety_assured { drop_table :posts }
+  end
+end
+```
+
 ### TODO
 
 * Changing a column type
