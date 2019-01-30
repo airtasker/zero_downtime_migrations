@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    zero_downtime_migrations (0.0.7)
+    zero_downtime_migrations (0.0.8)
       activerecord
 
 GEM
@@ -106,4 +106,4 @@ DEPENDENCIES
   zero_downtime_migrations!
 
 BUNDLED WITH
-   1.16.0
+   2.0.1
