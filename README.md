@@ -276,6 +276,36 @@ class CopyPublishedDataOnPosts < ActiveRecord::Migration[5.0]
 end
 ```
 
+### Removing a column
+
+#### Bad
+```ruby
+class RemovePublishedFromPosts < ActiveRecord::Migration[5.0]
+  def change
+    remove_column :posts, :published
+  end
+end
+```
+
+#### Good
+* Introduce code to ignore column
+* Deploy
+* Drop the column in last separate deploy
+
+```ruby
+class User < ActiveRecord::Base
+ ignore_columns :column_to_remove
+end
+```
+
+```ruby
+class RemoveColumnFromUsers < ActiveRecord::Migration[5.0]
+  def change
+    remove_column :users, :column_to_remove
+  end
+end
+```
+
 ### Dropping a table
 
 If old code is still using the models associated with this table before cutover, it can cause outages and confusion during deployment.
@@ -419,7 +449,6 @@ end
 ### TODO
 
 * Changing a column type
-* Removing a column
 * Renaming a table
 
 ## Disabling "zero downtime migration" enforcements
